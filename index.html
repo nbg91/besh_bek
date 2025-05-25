@@ -23,6 +23,25 @@
       font-size: 14px;
       cursor: pointer;
     }
+    #loader {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1000;
+    }
+    .spinner {
+      border: 6px solid #f3f3f3;
+      border-top: 6px solid #821B1D;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
 
   <script type="importmap">
@@ -35,6 +54,10 @@
   </script>
 </head>
 <body>
+  <div id="loader">
+  <div class="spinner"></div>
+  </div>
+
   <div id="buttons">
     <div style="text-align: center; font-weight: bold; font-family: sans-serif; margin-bottom: 5px; color: white;">
       Boshqa logo tanlash:
@@ -59,8 +82,11 @@
     exrLoader.load('bg/sky.exr', (texture) => {
       texture.mapping = THREE.EquirectangularReflectionMapping;
       scene.environment = texture;
-      scene.background = texture; // Optional: remove this line if you want just lighting but keep solid background
+      scene.background = texture;
+
+      document.getElementById('loader').style.display = 'none'; // 👈 Hide loader now
     });
+
 
     // === Scene Setup ===
     scene = new THREE.Scene();
