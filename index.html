@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>3D Capsule Scene with Logo Switcher</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+    }
+    #buttons {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 999;
+    }
+    #buttons button {
+      margin-right: 10px;
+      padding: 8px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+  </style>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="buttons">
+    <div style="text-align: center; font-weight: bold; font-family: sans-serif; margin-bottom: 5px; color: white;">
+      Boshqa logo tanlash:
+    </div>
+    <div style="display: flex; justify-content: center;">
+      <img src="logos/logo.png" alt="Default" onclick="switchLogo('logo.png')" style="cursor:pointer; height: 50px; margin: 0 10px;">
+      <img src="logos/logo-white.png" alt="White" onclick="switchLogo('logo-white.png', true)" style="cursor:pointer; height: 50px; margin: 0 10px;">
+      <img src="logos/logo-red.png" alt="Red" onclick="switchLogo('logo-red.png', true)" style="cursor:pointer; height: 50px; margin: 0 10px;">
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { DecalGeometry } from 'three/addons/geometries/DecalGeometry.js';
+    import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
+
+    let capsule, decal, capsuleMaterial, scene;
+    let currentDecalMesh = null;
+
+    const exrLoader = new EXRLoader();
+    exrLoader.load('bg/sky.exr', (texture) => {
+      texture.mapping = THREE.EquirectangularReflectionMapping;
+      scene.environment = texture;
+      scene.background = texture; // Optional: remove this line if you want just lighting but keep solid background
+    });
+
+    // === Scene Setup ===
+    scene = new THREE.Scene();
+
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.z = 2;
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+    renderer.setClearColor(0xbfe2dd);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const keyLight = new THREE.PointLight(0xffffff, 0.6);
+    keyLight.position.set(5, 15, 5);
+    scene.add(keyLight);
+    scene.add(new THREE.HemisphereLight(0xffeeb1, 0x080820, 1));
+
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMappingExposure = 0.6; // 👈 Drop this lower if it's still too bright
+
+    // === Capsule ===
+    const capsuleGeometry = new THREE.CapsuleGeometry(0.4, 2.5, 40, 40);
+    capsuleMaterial = new THREE.MeshStandardMaterial({
+      color: 0x821B1D,
+      metalness: 0.2,   // Reflective like metal
+      roughness: 0.4    // Low roughness = more shine
+    });
+    capsule = new THREE.Mesh(capsuleGeometry, capsuleMaterial);
+    scene.add(capsule);
+
+    // === Load and Apply Logo ===
+    function switchLogo(filename, setWhiteCapsule = false) {
+      const img = new Image();
+      img.src = `logos/${filename}`;
+      img.onload = () => {
+        const aspectRatio = 6029 / 3583;
+        const canvasWidth = 1024;
+        const canvasHeight = Math.floor(canvasWidth / aspectRatio);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+        ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
+
+        const canvasTexture = new THREE.CanvasTexture(canvas);
+
+        const decalMaterial = new THREE.MeshStandardMaterial({
+          map: canvasTexture,
+          transparent: true,
+          depthTest: true,
+          depthWrite: false,
+          polygonOffset: true,
+          polygonOffsetFactor: -4
+        });
+
+        const decalSize = new THREE.Vector3(0.7, 0.35, 0.5);
+        const decalPosition = new THREE.Vector3(0, 0, 0.41);
+        const decalRotation = new THREE.Euler(0, 0, Math.PI / 2);
+
+        // Remove previous decal if exists
+        if (currentDecalMesh) capsule.remove(currentDecalMesh);
+
+        currentDecalMesh = new THREE.Mesh(
+          new DecalGeometry(capsule, decalPosition, decalRotation, decalSize),
+          decalMaterial
+        );
+
+        capsule.add(currentDecalMesh);
+
+        // Update capsule color if needed
+        capsuleMaterial.color.set(setWhiteCapsule ? 0xffffff : 0x821B1D);
+      };
+    }
+
+    // Load default logo initially
+    switchLogo('logo.png');
+
+    // === Animation Loop ===
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Expose function to window for button access
+    window.switchLogo = switchLogo;
+  </script>
+</body>
+</html>
